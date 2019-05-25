@@ -1,15 +1,19 @@
 #! /usr/bin/python3
-from PIL import Image
-from os import listdir
 from math import sqrt, cos, pi
+from os import listdir
+
+import numpy as np
+from PIL import Image
 
 NEW_IMAGE_SIZE = 32
 CHECKING_SUB_IMAGE_SIZE = 8
 
+HAAR_FEATURE_SIZE = 4
+
 HAMMING_DISTANCE_THRESHOLD = 12
 
 
-def phash(px):
+def p_hash(px):
     # getting average color value
     average_color = 0
     for i in range(CHECKING_SUB_IMAGE_SIZE):
@@ -46,6 +50,21 @@ def dct(pixels):
     return res
 
 
+# def haar(pixels, size):
+#     sum_area_table = {}
+#
+#     def I(x, y):
+#         return 0 if x < 0 or y < 0 else sum_area_table[x, y]
+#
+#     # calculation sum area table
+#     for i in range(size):
+#         for j in range(size):
+#             sum_area_table[i, j] = pixels[i, j] + I(i, j - 1) + I(i - 1, j) + I(i - 1, j - 1)
+#     # building matrix of sums pixels in HAAR_FEATURE_SIZE blocks
+#     for i in range()
+#         return sum_area_table
+
+
 def get_pixels(image_path):
     im = Image.open(image_path)
     im = im.resize((NEW_IMAGE_SIZE, NEW_IMAGE_SIZE)).convert("L")
@@ -59,7 +78,7 @@ def hamming_distance(bits1, bits2):
     return distance
 
 
-def load_images_phash(root_path):
+def load_images_p_hash(root_path):
     r = []
     for filename in listdir(root_path):
         cur_image_path = root_path + "/" + filename
@@ -67,26 +86,53 @@ def load_images_phash(root_path):
         print("Processing %s ........" % cur_image_path, end="")
         dct_pixels = dct(pixels)
         print("[DONE]")
-        r.append((filename, phash(dct_pixels)))
+        r.append((filename, p_hash(dct_pixels)))
     return r
 
 
-def find_similar(images_phash):
+def find_similar(images_p_hash):
     similar_pairs = []
-    for i in range(len(images_phash)):
-        for j in range(i + 1, len(images_phash)):
-            image1_phash = images_phash[i][1]
-            image2_phash = images_phash[j][1]
-            distance = hamming_distance(image1_phash, image2_phash)
-            print("Distance between %s and %s = %d" % (images_phash[i][0], images_phash[j][0], distance))
+    for i in range(len(images_p_hash)):
+        for j in range(i + 1, len(images_p_hash)):
+            image1_p_hash = images_p_hash[i][1]
+            image2_p_hash = images_p_hash[j][1]
+            distance = hamming_distance(image1_p_hash, image2_p_hash)
+            print("Distance between %s and %s = %d" % (images_p_hash[i][0], images_p_hash[j][0], distance))
             if distance <= HAMMING_DISTANCE_THRESHOLD:
-                similar_pairs.append((images_phash[i][0], images_phash[j][0]))
+                similar_pairs.append((images_p_hash[i][0], images_p_hash[j][0]))
     return similar_pairs
 
 
+def convert_image(src_path, dst_path):
+    pixels = get_pixels(src_path)
+    d = dct(pixels)
+    data = np.zeros((CHECKING_SUB_IMAGE_SIZE, CHECKING_SUB_IMAGE_SIZE), dtype=np.uint8)
+    # calculation average pixel value
+    av = 0
+    for i in range(CHECKING_SUB_IMAGE_SIZE):
+        for j in range(CHECKING_SUB_IMAGE_SIZE):
+            av += d[i, j]
+    av /= CHECKING_SUB_IMAGE_SIZE * CHECKING_SUB_IMAGE_SIZE
+    for i in range(CHECKING_SUB_IMAGE_SIZE):
+        for j in range(CHECKING_SUB_IMAGE_SIZE):
+            data[i, j] = 0 if d[i, j] < av else 255
+
+    img = Image.fromarray(data, 'L')
+    img.save(dst_path)
+
+
+#
+# if __name__ == "__main__":
+#     images_p_hash = load_images_p_hash("dev_dataset")
+#     similar_pairs = find_similar(images_p_hash)
+#     print("============================== SIMILAR PAIRS ==============================")
+#     for p in similar_pairs:
+#         print(p)
+
+
 if __name__ == "__main__":
-    images_phash = load_images_phash("dev_dataset")
-    similar_pairs = find_similar(images_phash)
-    print("============================== SIMILAR PAIRS ==============================")
-    for p in similar_pairs:
-        print(p)
+    from sys import argv
+
+    src_path = argv[1]
+    dst_path = argv[2]
+    convert_image(src_path, dst_path)
